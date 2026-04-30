@@ -1,0 +1,35 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.env/
+.env.*
+
+# VS Code
+.vscode/
+
+# Mac/Windows
+.DS_Store
+Thumbs.db
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Pyright/Pylance type cache
+.pyright/
+
+# Ignore tests output and data
+data/input/
+data/output/
+
+# Ignore imports used only for type checking (editors sometimes add)
+# e.g., from typing import TYPE_CHECKING
+*.pyi
