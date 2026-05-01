@@ -147,7 +147,22 @@ def run_mat_pipeline(img: np.ndarray, base_name: str):
     pixels_per_mm = MAT_SCALE_PX_MM          # exact — no estimation needed
     print(f"  [mat] Scale: {pixels_per_mm} px/mm (exact, from warp definition)")
  
-    # 2. Segment tool from blue surface
+    # 2. Verify scale using checkerboard grid (catches camera angle errors)
+    scale_info = MetrologyEngine.verify_scale_from_grid(warped)
+    correction = scale_info['correction_factor']
+    print(f"  [mat] Grid measured: {scale_info['measured_px_per_mm']:.3f} px/mm  "
+          f"(error: {scale_info['scale_error_pct']:.1f}%  "
+          f"correction: {correction:.4f})")
+    if scale_info['warning']:
+        print(f"  [WARN] {scale_info['warning']}")
+    if not scale_info['reliable']:
+        raise ValueError(
+            "Scale error exceeds 15% — image geometry is too distorted to "
+            "produce reliable measurements. Retake the photo directly overhead "
+            "with the mat fully flat."
+        )
+ 
+    # 3. Segment tool from blue surface
     print("  [mat] Segmenting tool from mat surface …")
     segmentor    = ToolSegmentor()
     tool_mask    = segmentor.segment_tool(warped)
@@ -176,7 +191,8 @@ def run_mat_pipeline(img: np.ndarray, base_name: str):
  
     _measure_and_export(tool_contour, final_mask,
                         pixels_per_mm, base_name,
-                        canvas_w_mm=MAT_WIDTH_MM, canvas_h_mm=MAT_HEIGHT_MM)
+                        canvas_w_mm=MAT_WIDTH_MM, canvas_h_mm=MAT_HEIGHT_MM,
+                        correction_factor=correction)
  
  
 # ── REF pipeline ───────────────────────────────────────────────────────────────
@@ -272,14 +288,16 @@ def run_ref_pipeline(img: np.ndarray, base_name: str):
  
 # ── Shared measurement + export ────────────────────────────────────────────────
 def _measure_and_export(contour, mask, pixels_per_mm,
-                        base_name, canvas_w_mm, canvas_h_mm):
+                        base_name, canvas_w_mm, canvas_h_mm,
+                        correction_factor=1.0):
     metrology       = MetrologyEngine(pixels_per_mm)
-    real_w, real_h  = metrology.measure_contour(contour)
+    real_w, real_h  = metrology.measure_contour(contour,
+                                                 correction_factor=correction_factor)
  
     # minAreaRect can orient either way — report longer dim as "length"
     length_mm = max(real_w, real_h)
     width_mm  = min(real_w, real_h)
-    area_mm2  = cv2.contourArea(contour) / (pixels_per_mm ** 2)
+    area_mm2  = metrology.contour_area_mm2(contour, correction_factor=correction_factor)
  
     print(f"\n  ┌─ Tool measurements ───────────────────")
     print(f"  │  Length : {length_mm:7.1f} mm")
