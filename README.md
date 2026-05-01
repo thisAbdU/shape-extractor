@@ -71,81 +71,81 @@ python utils/file_manager.py clear
 ```
 
 ### 4. Run Pipeline
+# Shape Extractor
+
+A small, self-contained pipeline that converts photos of tools (taken on a
+calibration mat or with a 32 mm reference object) into millimetre-accurate
+vector outputs (SVG and DXF) plus high-resolution masks. It's intended for
+quickly producing 1:1 digital twins for CNC/laser cutting or documentation.
+
+Key features
+- Two calibration modes: `mat` (600×200 mm printed mat with ArUco markers)
+	and `ref` (single 32 mm circular reference object).
+- Robust ArUco + contour-based mat detection with fallbacks for glare.
+- HSV-based segmentation tuned for a cyan/blue mat surface.
+- Outputs: SVG (1 unit = 1 mm), DXF (basic LWPOLYLINE), and high-res mask PNGs.
+
+Quick start
+1. Install dependencies:
+
 ```bash
-# Process all images in data/input/
+pip install -r requirements.txt
+```
+
+2. Place your images in `data/input/` (HEIC, JPG, PNG supported). It's already moved by default. if you want to start from scratch clear and move images from resources to here using the commnad given above. Then run:
+
+```bash
+# process all images in data/input/
 python main.py
 
-# Process specific image
+# or process a single image
 python main.py data/input/IMG_5214.HEIC
 ```
 
-## Output Files
+Modes
+- auto (default): pipeline will try to detect the mat (via ArUco). If it
+	finds the mat it runs the `mat` pipeline; otherwise it falls back to `ref`.
+- mat: uses a fixed warp that maps the printed 600×200 mm mat to a 3000×1000
+	px image (5 px/mm) before segmentation.
+- ref: detects the 32 mm circle in the photo to compute pixels/mm.
 
-### Final Results
-- `17_tool_digital_twin.svg` - Vector file (1 unit = 1mm)
-- `17_tool_digital_twin.dxf` - CNC/Laser cutting format
-- `16_tool_mask_highres.png` - High-resolution binary mask
+Project layout
 
-### Debug Images
-- `01_original_gray.png` - Original grayscale image
-- `04_aruco_detected.png` - Detected ArUco markers
-- `08_rectified_mat.png` - Perspective-corrected view
-- `08_reference_circle.png` - Detected 32mm circle
-- `15_final_tool_mask.png` - Clean tool silhouette
-- Plus 10+ intermediate processing steps
-
-## Technical Details
-
-### ArUco Detection
-- Dictionary: `DICT_4X4_50`
-- Robust detection with gamma correction and adaptive thresholding
-- Fallback to mat contour detection for glare-heavy images
-
-### Scale Calibration
-- 32mm circular reference object
-- Automatic pixel-to-millimeter ratio calculation
-- Typical result: ~5 pixels/mm at current resolution
-
-### Tool Segmentation
-- HSV color space for blue background separation
-- Morphological operations (opening/closing) for noise removal
-- Largest contour extraction for tool identification
-
-### Output Formats
-- **SVG**: Scalable vector with 1:1 mm scaling
-- **DXF**: Basic R14 format for CNC compatibility
-- **PNG**: High-resolution binary mask (10x scale)
-
-## Dependencies
-
-- `opencv-contrib-python` - Computer vision and ArUco detection
-- `numpy` - Numerical operations
-- `pillow` + `pillow-heif` - HEIC image support
-- `scipy` - Spatial calculations
-- `imutils` - Image utilities
-
-## Troubleshooting
-
-### ArUco Detection Fails
-- Check lighting conditions
-- Ensure markers are flat and visible
-- Pipeline automatically falls back to mat contour detection
-
-### Scale Calibration Issues
-- Verify 32mm circle is printed at correct size
-- Ensure circle is clearly visible in the image
-- Check debug image `08_reference_circle.png`
-
-### Tool Segmentation Problems
-- Adjust HSV color ranges in `segmentor.py`
-- Modify morphological kernel sizes for different tools
-- Check intermediate masks in `data/output/`
-
-## Logging
-
-Each run generates a timestamped log file:
 ```
-data/output/shape_extractor_YYYYMMDD_HHMMSS.log
+./
+├─ main.py                # pipeline entrypoint and CLI
+├─ requirements.txt       # Python dependencies
+├─ core/                  # core pipeline modules (detector, segmentor, etc.)
+├─ utils/                 # helpers (file_manager, visualizer)
+├─ data/
+│  ├─ input/              # put images to process here
+│  └─ output/             # pipeline outputs and debug images
+├─ resources/             # printable mat, test images
+└─ tests/                 # unit tests (pytest)
 ```
 
-Contains detailed pipeline steps, measurements, and any errors encountered.
+Outputs
+- {basename}_tool.svg       — vector outline scaled in millimetres
+- {basename}_tool.dxf       — DXF polyline suitable for CNC/laser tools
+- {basename}_tool_hires.png — high-resolution binary mask of the tool
+- Numerous debug PNGs written to `data/output/` (warp, masks, overlays).
+
+Troubleshooting & tips
+- If mat mode claims the mat is upside-down, inspect the saved warped image
+	(saved as `{basename}_01_warped.png`) — the code checks for blue coverage
+	and will error if the mat appears to be the cardboard back.
+- If no circle is detected in `ref` mode, make sure the 32 mm reference
+	object is clearly visible and contrasts with the background.
+- Tweak HSV ranges and morphological kernel sizes in
+	`core/segmentor.py` if segmentation is noisy for your images.
+
+Running tests
+
+```bash
+pip install -r requirements.txt
+python -m pytest -q
+```
+
+License & notes
+- This repository is a small, MIT-style utility for rapid prototyping. See the
+	source in `core/` for implementation details and unit tests in `tests/`.

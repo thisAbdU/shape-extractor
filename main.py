@@ -342,7 +342,7 @@ def run_pipeline(image_path: str, mode: str = "auto"):
  
     except Exception as exc:
         print(f"[ FAIL ]  {exc}")
-        raise
+        # Do NOT re-raise — log and continue so batch processing carries on
  
  
 def run_batch(input_dir: str = "data/input", mode: str = "auto"):
